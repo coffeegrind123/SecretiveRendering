@@ -39,12 +39,13 @@ void imguiHook::InitializeImgui(IDirect3DDevice9* pDevice) {
         oWndProc = reinterpret_cast<WNDPROC>(SetWindowLongPtr(window, GWLP_WNDPROC, LONG_PTR(hkWndProc)));
         IMGUI_CHECKVERSION();
         ImGui::CreateContext();
-        ImGui::CreateContext();
+        // Remove duplicate CreateContext call
         ImGuiIO& io = ImGui::GetIO();
+        io.ConfigFlags |= ImGuiConfigFlags_NoMouseCursorChange;
 
         ImGui::StyleColorsDark();
         // Perform final ImGui setup.
-        ImGui_ImplWin32_Init (window);
+        ImGui_ImplWin32_Init(window);
         ImGui_ImplDX9_Init(pDevice);
     }
 }

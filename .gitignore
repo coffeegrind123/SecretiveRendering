@@ -1,6 +1,26 @@
 
-.idea/
-
+# Build directories
 build/
+bin/
+obj/
 
+# IDE files
+.idea/
+.vs/
+
+# CMake
 cmake-build-debug/
+
+# Visual Studio files
+*.user
+*.log
+*.pdb
+*.iobj
+*.ipdb
+*.tlog
+*.recipe
+*.suo
+*.opendb
+*.db
+*.db-shm
+*.db-wal

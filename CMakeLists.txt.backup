@@ -1,0 +1,162 @@
+cmake_minimum_required(VERSION 3.16)
+project(TF2SecretiveRendering VERSION 2.0.0 LANGUAGES CXX C)
+
+# Project configuration
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+# Enforce Windows platform
+if(NOT WIN32)
+    message(FATAL_ERROR "This project requires Windows. TF2 Steam overlay is Windows-only.")
+endif()
+
+# Enforce x64 architecture for TF2 compatibility
+if(NOT CMAKE_SIZEOF_VOID_P EQUAL 8)
+    message(FATAL_ERROR "This project requires 64-bit architecture. TF2 Steam overlay is 64-bit only.")
+endif()
+
+# Set platform to x64 and output directory
+set(CMAKE_GENERATOR_PLATFORM x64)
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+
+# DirectX9 SDK configuration
+if(DEFINED ENV{DXSDK_DIR})
+    set(DIRECTX_SDK_DIR $ENV{DXSDK_DIR})
+    message(STATUS "DirectX SDK found at: ${DIRECTX_SDK_DIR}")
+    include_directories(${DIRECTX_SDK_DIR}/Include)
+    link_directories(${DIRECTX_SDK_DIR}/Lib/x64)
+else()
+    message(WARNING "DXSDK_DIR environment variable not found. Please install DirectX SDK and set DXSDK_DIR.")
+    # Try common installation paths
+    if(EXISTS "C:/Program Files (x86)/Microsoft DirectX SDK (June 2010)")
+        set(DIRECTX_SDK_DIR "C:/Program Files (x86)/Microsoft DirectX SDK (June 2010)")
+        include_directories(${DIRECTX_SDK_DIR}/Include)
+        link_directories(${DIRECTX_SDK_DIR}/Lib/x64)
+        message(STATUS "Using DirectX SDK from default location: ${DIRECTX_SDK_DIR}")
+    endif()
+endif()
+
+# Compiler-specific settings
+if(MSVC)
+    # Enable parallel compilation
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MP")
+    # Disable specific warnings for cleaner output
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4996 /wd4267 /wd4244")
+    # Enable debug information in release builds
+    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /Zi")
+    set(CMAKE_SHARED_LINKER_FLAGS_RELEASE "${CMAKE_SHARED_LINKER_FLAGS_RELEASE} /DEBUG /OPT:REF /OPT:ICF")
+endif()
+
+# Add preprocessor definitions
+add_definitions(-DUNICODE -D_UNICODE)
+add_definitions(-DTF2_SECRETIVE_RENDERING)
+add_definitions(-DSECRETIVE_RENDERING_VERSION="2.0.0")
+
+# Source files for main project
+file(GLOB_RECURSE MAIN_SOURCES 
+    ${CMAKE_CURRENT_SOURCE_DIR}/SecretiveRendering/*.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/SecretiveRendering/*.c
+)
+file(GLOB_RECURSE MAIN_HEADERS 
+    ${CMAKE_CURRENT_SOURCE_DIR}/SecretiveRendering/*.h
+)
+
+# ImGui source files
+file(GLOB IMGUI_SOURCES 
+    ${CMAKE_CURRENT_SOURCE_DIR}/imgui/imgui.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/imgui/imgui_demo.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/imgui/imgui_draw.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/imgui/imgui_tables.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/imgui/imgui_widgets.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/imgui/imgui_impl_dx9.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/imgui/imgui_impl_win32.cpp
+)
+file(GLOB IMGUI_HEADERS 
+    ${CMAKE_CURRENT_SOURCE_DIR}/imgui/*.h
+)
+
+# MinHook source files
+file(GLOB MINHOOK_SOURCES 
+    ${CMAKE_CURRENT_SOURCE_DIR}/minhook/src/buffer.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/minhook/src/hook.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/minhook/src/trampoline.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/minhook/src/hde/hde32.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/minhook/src/hde/hde64.c
+)
+file(GLOB MINHOOK_HEADERS 
+    ${CMAKE_CURRENT_SOURCE_DIR}/minhook/include/*.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/minhook/src/*.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/minhook/src/hde/*.h
+)
+
+# Create the main library
+add_library(${PROJECT_NAME} SHARED
+    ${MAIN_SOURCES}
+    ${MAIN_HEADERS}
+    ${IMGUI_SOURCES}
+    ${IMGUI_HEADERS}
+    ${MINHOOK_SOURCES}
+    ${MINHOOK_HEADERS}
+)
+
+# Set target properties
+set_target_properties(${PROJECT_NAME} PROPERTIES
+    OUTPUT_NAME "TF2SecretiveRendering"
+    SUFFIX ".dll"
+    PREFIX ""
+)
+
+# Include directories
+target_include_directories(${PROJECT_NAME} PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/SecretiveRendering
+    ${CMAKE_CURRENT_SOURCE_DIR}/imgui
+    ${CMAKE_CURRENT_SOURCE_DIR}/minhook/include
+)
+
+# System libraries for Windows
+target_link_libraries(${PROJECT_NAME} PRIVATE
+    d3d9
+    psapi
+    user32
+    kernel32
+    gdi32
+    winspool
+    shell32
+    ole32
+    oleaut32
+    uuid
+    comdlg32
+    advapi32
+)
+
+# DirectX libraries (if available)
+if(DIRECTX_SDK_DIR)
+    target_link_libraries(${PROJECT_NAME} PRIVATE d3dx9)
+endif()
+
+# Add compile definitions
+target_compile_definitions(${PROJECT_NAME} PRIVATE
+    WIN32_LEAN_AND_MEAN
+    NOMINMAX
+    $<$<CONFIG:Debug>:_DEBUG>
+    $<$<CONFIG:Release>:NDEBUG>
+)
+
+# Installation (optional)
+install(TARGETS ${PROJECT_NAME}
+    RUNTIME DESTINATION bin
+    LIBRARY DESTINATION lib
+    ARCHIVE DESTINATION lib
+)
+
+# Status messages
+message(STATUS "TF2 SecretiveRendering Configuration:")
+message(STATUS "  Version: ${PROJECT_VERSION}")
+message(STATUS "  Build Type: ${CMAKE_BUILD_TYPE}")
+message(STATUS "  Compiler: ${CMAKE_CXX_COMPILER_ID}")
+message(STATUS "  Architecture: x64")
+message(STATUS "  DirectX SDK: ${DIRECTX_SDK_DIR}")
+message(STATUS "  Output Directory: ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}")
